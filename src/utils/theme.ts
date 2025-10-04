@@ -83,6 +83,67 @@ export const theme = {
     '$purple-700': '#5E2F9F',
     '$purple-800': '#432774',
     '$purple-900': '#321257',
+
+    // New vibrant colors for colorful design
+    '$pink-100': '#FCE7F3',
+    '$pink-300': '#F9A8D4',
+    '$pink-500': '#EC4899',
+    '$pink-600': '#DB2777',
+    
+    '$cyan-100': '#CFFAFE',
+    '$cyan-300': '#67E8F9',
+    '$cyan-500': '#06B6D4',
+    '$cyan-600': '#0891B2',
+    
+    '$indigo-100': '#E0E7FF',
+    '$indigo-300': '#A5B4FC',
+    '$indigo-500': '#6366F1',
+    '$indigo-600': '#4F46E5',
+    
+    '$emerald-100': '#D1FAE5',
+    '$emerald-300': '#6EE7B7',
+    '$emerald-500': '#10B981',
+    '$emerald-600': '#059669',
+    
+    '$rose-100': '#FFE4E6',
+    '$rose-300': '#FDA4AF',
+    '$rose-500': '#F43F5E',
+    '$rose-600': '#E11D48',
+    
+    '$amber-100': '#FEF3C7',
+    '$amber-300': '#FCD34D',
+    '$amber-500': '#F59E0B',
+    '$amber-600': '#D97706',
+    
+    '$violet-100': '#EDE9FE',
+    '$violet-300': '#C4B5FD',
+    '$violet-500': '#8B5CF6',
+    '$violet-600': '#7C3AED',
+
+    // Gradient colors
+    '$gradient-blue-start': '#E0F2FE',
+    '$gradient-blue-end': '#F0F9FF',
+    '$gradient-purple-start': '#F3E8FF',
+    '$gradient-purple-end': '#FAF5FF',
+    '$gradient-green-start': '#ECFDF5',
+    '$gradient-green-end': '#F0FDF4',
+    '$gradient-pink-start': '#FDF2F8',
+    '$gradient-pink-end': '#FEF7FF',
+
+    // Autism-friendly colors (suaves e acolhedoras)
+    '$autism-blue': '#A7C7E7',      // Azul pastel
+    '$autism-mint': '#C4E3CB',      // Verde-menta
+    '$autism-lavender': '#D7C6E9',  // Lavanda suave
+    '$autism-gray': '#F0F0F0',      // Cinza-claro
+    '$autism-peach': '#F7D9C4',     // Pêssego claro
+
+    // Autism-friendly gradients
+    '$autism-gradient-1-start': '#A7C7E7',
+    '$autism-gradient-1-end': '#F0F0F0',
+    '$autism-gradient-2-start': '#C4E3CB',
+    '$autism-gradient-2-end': '#F7D9C4',
+    '$autism-gradient-3-start': '#D7C6E9',
+    '$autism-gradient-3-end': '#A7C7E7',
   },
 
   typography: {

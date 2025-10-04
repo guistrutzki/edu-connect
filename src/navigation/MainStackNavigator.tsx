@@ -1,36 +1,45 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
-import { Text } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { MainStackParamList, MainTabParamList, ROUTES_NAME } from './types'
 import { HomeScreen } from '../screens/Main/HomeScreen'
 import { AudioCaptureScreen } from '../screens/Main/AudioCaptureScreen'
-import { EmojiDisplayScreen } from '../screens/Main/EmojiDisplayScreen'
 
 const Stack = createNativeStackNavigator<MainStackParamList>()
 const Tab = createBottomTabNavigator<MainTabParamList>()
 
 const MainTabs = () => {
+  const insets = useSafeAreaInsets()
+  
   return (
     <Tab.Navigator
       initialRouteName={ROUTES_NAME.HOME}
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: '#fff',
-          borderTopWidth: 1,
-          borderTopColor: '#e0e0e0',
+          backgroundColor: '#E3F2FD',
+          borderTopWidth: 2,
+          borderTopColor: '#BBDEFB',
+          height: 70 + insets.bottom,
+          paddingBottom: insets.bottom + 10,
+          paddingTop: 10,
         },
-        tabBarActiveTintColor: '#007AFF',
-        tabBarInactiveTintColor: '#8E8E93',
+        tabBarActiveTintColor: '#1976D2',
+        tabBarInactiveTintColor: '#64B5F6',
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '600',
+        },
       }}
     >
       <Tab.Screen 
         name={ROUTES_NAME.HOME} 
         component={HomeScreen}
         options={{
-          tabBarLabel: 'Home',
-          tabBarIcon: ({ color }) => (
-            <Text style={{ color, fontSize: 20 }}>🏠</Text>
+          tabBarLabel: 'Início',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="home" size={size || 24} color={color} />
           ),
         }}
       />
@@ -39,18 +48,8 @@ const MainTabs = () => {
         component={AudioCaptureScreen}
         options={{
           tabBarLabel: 'Gravar',
-          tabBarIcon: ({ color }) => (
-            <Text style={{ color, fontSize: 20 }}>🎤</Text>
-          ),
-        }}
-      />
-      <Tab.Screen 
-        name={ROUTES_NAME.EMOJI_DISPLAY} 
-        component={EmojiDisplayScreen}
-        options={{
-          tabBarLabel: 'Emojis',
-          tabBarIcon: ({ color }) => (
-            <Text style={{ color, fontSize: 20 }}>😊</Text>
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="mic" size={size || 24} color={color} />
           ),
         }}
       />

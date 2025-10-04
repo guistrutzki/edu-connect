@@ -4,25 +4,25 @@ export enum FontFamily {
 }
 
 export enum FontSize {
+  DESCRIPTION_XS = 8,
+  DESCRIPTION_SM = 10,
+  DESCRIPTION_MD = 12,
+  DESCRIPTION_LG = 14,
+  TITLE_XS = 16,
+  TITLE_SM = 18,
+  TITLE_MD = 20,
+  BRAND = 28,
+}
+
+export enum LineHeight {
   DESCRIPTION_XS = 10,
   DESCRIPTION_SM = 12,
   DESCRIPTION_MD = 14,
   DESCRIPTION_LG = 16,
   TITLE_XS = 18,
   TITLE_SM = 20,
-  TITLE_MD = 24,
-  BRAND = 50,
-}
-
-export enum LineHeight {
-  DESCRIPTION_XS = 12,
-  DESCRIPTION_SM = 14,
-  DESCRIPTION_MD = 16,
-  DESCRIPTION_LG = 18,
-  TITLE_XS = 20,
-  TITLE_SM = 22,
-  TITLE_MD = 26,
-  BRAND = 50,
+  TITLE_MD = 22,
+  BRAND = 32,
 }
 
 // Typography enum

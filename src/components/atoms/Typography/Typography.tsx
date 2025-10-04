@@ -11,8 +11,6 @@ const getFontFamily = (fontWeight: keyof typeof theme.fontWeight) => {
       return 'Poppins-Regular'
     case '$medium':
       return 'Poppins-Medium'
-    case '$semiBold':
-      return 'Poppins-SemiBold'
     case '$bold':
       return 'Poppins-Bold'
     default:

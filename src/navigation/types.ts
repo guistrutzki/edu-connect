@@ -8,7 +8,6 @@ export enum ROUTES_NAME {
   // Main Routes  
   HOME = 'Home',
   AUDIO_CAPTURE = 'AudioCapture',
-  EMOJI_DISPLAY = 'EmojiDisplay',
   
   // Tab Names
   MAIN_TABS = 'MainTabs'
@@ -29,7 +28,6 @@ export type MainStackParamList = {
 export type MainTabParamList = {
   Home: undefined
   AudioCapture: undefined
-  EmojiDisplay: undefined
 }
 
 // Root Stack Navigator
