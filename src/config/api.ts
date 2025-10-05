@@ -6,26 +6,26 @@ export const getApiBaseUrl = (): string => {
   if (__DEV__) {
     // Para Android emulador, use 10.0.2.2
     if (Platform.OS === 'android') {
-      return 'http://10.0.2.2:3000'
+      return 'https://edu-connect-api-0pnr.onrender.com'
     }
     
     // Para iOS simulador, use o IP da máquina
     if (Platform.OS === 'ios') {
-      return 'http://192.168.2.101:3000'
+      return 'https://edu-connect-api-0pnr.onrender.com'
     }
     
     // Para web, use localhost
     if (Platform.OS === 'web') {
-      return 'http://localhost:3000'
+      return 'https://edu-connect-api-0pnr.onrender.com'
     }
     
     // Para Expo Go em dispositivo físico, use o IP local da máquina
     // Substitua pelo IP da sua máquina se necessário
-    return 'http://192.168.2.101:3000'
+    return 'https://edu-connect-api-0pnr.onrender.com'
   }
   
   // Para produção, use a URL do ambiente
-  return process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000'
+  return process.env.EXPO_PUBLIC_API_URL || 'https://edu-connect-api-0pnr.onrender.com'
 }
 
 // Configuração da API

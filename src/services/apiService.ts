@@ -1,4 +1,5 @@
 import { AudioProcessingResult, AudioError } from '../types/audio.types'
+import { Platform } from 'react-native'
 
 export interface ApiConfig {
   baseUrl: string
@@ -34,24 +35,58 @@ export class ApiService {
 
       this.abortController = new AbortController()
 
-      // Create form data
+      // Create form data based on platform
       const formData = new FormData()
-      formData.append('audio', {
-        uri: audioUri,
-        type: 'audio/m4a',
-        name: `chunk_${chunkId}.m4a`,
-      } as any)
+      
+      if (Platform.OS === 'web') {
+        // For web, we need to fetch the audio as a blob
+        try {
+          console.log(`🌐 Web platform detected, fetching audio blob from: ${audioUri}`)
+          const response = await fetch(audioUri)
+          const audioBlob = await response.blob()
+          
+          // Create a File object from the blob
+          const audioFile = new File([audioBlob], `chunk_${chunkId}.m4a`, {
+            type: 'audio/m4a'
+          })
+          
+          formData.append('audio', audioFile)
+          console.log(`📦 Web FormData created with File object:`, {
+            name: audioFile.name,
+            type: audioFile.type,
+            size: audioFile.size
+          })
+        } catch (error) {
+          console.error('❌ Error creating audio blob for web:', error)
+          throw new Error(`Failed to create audio blob for web: ${error}`)
+        }
+      } else {
+        // For React Native (iOS/Android), use the uri format
+        formData.append('audio', {
+          uri: audioUri,
+          type: 'audio/m4a',
+          name: `chunk_${chunkId}.m4a`,
+        } as any)
+        console.log(`📱 React Native FormData created with URI:`, audioUri)
+      }
+      
       formData.append('chunkId', chunkId.toString())
       formData.append('timestamp', new Date().toISOString())
 
       // Make API request with retry logic
       return await this.retryRequest(async () => {
+        // Prepare headers based on platform
+        const headers: Record<string, string> = {}
+        
+        // Only set Content-Type for React Native, let browser handle it for web
+        if (Platform.OS !== 'web') {
+          headers['Content-Type'] = 'multipart/form-data'
+        }
+        
         const response = await fetch(`${this.config.baseUrl}/api/audio`, {
           method: 'POST',
           body: formData,
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
+          headers,
           signal: this.abortController?.signal,
         })
 
