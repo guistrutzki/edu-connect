@@ -5,6 +5,7 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
+      "@assets/*": ["src/assets/*"],
       "@screens/*": ["src/screens/*"],
       "@components/*": ["src/components/*"],
       "@routes/*": ["src/routes/*"],
@@ -12,5 +13,6 @@
       "@services/*": ["src/services/*"],
       "@store/*": ["src/store/*"]
     }
-  }
+  },
+  "include": ["**/*.ts", "**/*.tsx", "src/types/svg.d.ts"]
 }

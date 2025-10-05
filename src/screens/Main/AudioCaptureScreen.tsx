@@ -1,94 +1,198 @@
-import React, { useState, useEffect, useRef } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native'
+import React, { useEffect } from 'react'
+import { View, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Typography } from '../../components/atoms/Typography'
+import { TranscriptionList } from '../../components/atoms/TranscriptionList'
+import { VisualRepresentationList } from '../../components/atoms/VisualRepresentationList'
+import { RecordingControls } from '../../components/atoms/RecordingControls'
+import { useAudioStore } from '../../store/audioStore'
+import { useAudioService } from '../../services/audioService'
 import { theme } from '../../utils/theme'
 
-interface AudioChunk {
-  id: number
-  timestamp: Date
-  status: 'processing' | 'completed' | 'error'
-  transcription?: string
-  emoji?: string
-  summary?: string
-}
-
 export const AudioCaptureScreen = () => {
-  const [isRecording, setIsRecording] = useState(false)
-  const [chunks, setChunks] = useState<AudioChunk[]>([])
-  const [currentChunkId, setCurrentChunkId] = useState(1)
-  const [processingStatus, setProcessingStatus] = useState<string>('Pronto para gravar')
-  
-  const intervalRef = useRef<NodeJS.Timeout | null>(null)
-  const recordingStartTime = useRef<Date | null>(null)
+  const insets = useSafeAreaInsets()
+  const {
+    isRecording: storeIsRecording,
+    isProcessing,
+    processingStatus,
+    recordingDuration,
+    transcriptionChunks,
+    visualRepresentations,
+    errors,
+    processAudioChunk,
+    setRecordingState,
+    setProcessingState,
+    setProcessingStatus,
+    setCurrentChunkId,
+    setRecordingStartTime,
+    setRecordingDuration,
+    clearErrors,
+    reset,
+    useMockData,
+    loadMockData,
+    toggleMockData
+  } = useAudioStore()
 
-  const handleStartRecording = () => {
-    setIsRecording(true)
-    setProcessingStatus('Gravando...')
-    recordingStartTime.current = new Date()
-    
-    // Start 3-second interval processing
-    intervalRef.current = setInterval(() => {
-      processAudioChunk()
-    }, 3000)
+  // Use the audio service hook
+  const {
+    startRecording,
+    stopRecording,
+    cancelRecording,
+    recordingState,
+    isRecording: hookIsRecording
+  } = useAudioService({
+    onChunkReady: async (audioUri: string, chunkId: number) => {
+      // Process the audio chunk through the store
+      await processAudioChunk(audioUri, chunkId)
+    },
+    onError: (error) => {
+      // Handle errors through the store
+      useAudioStore.getState().addError(error)
+    },
+    onStateChange: (state) => {
+      // Update store state when audio service state changes
+      setRecordingState(state.isRecording)
+      setCurrentChunkId(state.currentChunkId)
+      setRecordingStartTime(state.recordingStartTime)
+      setRecordingDuration(state.recordingDuration)
+    }
+  })
+
+  // Use the hook's recording state as the source of truth
+  const isRecording = hookIsRecording
+
+  // Function to get button color based on status
+  const getNewRecordingButtonColor = () => {
+    if (processingStatus === 'completed') {
+      return theme.COLORS['$color-success'] // Green for completed
+    } else if (processingStatus === 'error') {
+      return theme.COLORS['$autism-peach'] // Red/Orange for error
+    } else {
+      return theme.COLORS['$autism-lavender'] // Default purple
+    }
   }
 
-  const handleStopRecording = () => {
-    setIsRecording(false)
-    setProcessingStatus('Parando gravação...')
-    
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current)
-      intervalRef.current = null
+  // Handle errors
+  useEffect(() => {
+    if (errors.length > 0) {
+      const latestError = errors[errors.length - 1]
+      Alert.alert(
+        'Erro',
+        latestError.message,
+        [
+          {
+            text: 'OK',
+            onPress: () => clearErrors()
+          }
+        ]
+      )
     }
-    
-    // Process final chunk if recording was active
-    if (recordingStartTime.current) {
-      processAudioChunk()
-    }
-    
-    setTimeout(() => {
-      setProcessingStatus('Gravação finalizada')
-    }, 1000)
-  }
+  }, [errors, clearErrors])
 
-  const processAudioChunk = () => {
-    const newChunk: AudioChunk = {
-      id: currentChunkId,
-      timestamp: new Date(),
-      status: 'processing'
-    }
-    
-    setChunks(prev => [...prev, newChunk])
-    setCurrentChunkId(prev => prev + 1)
-    setProcessingStatus(`Processando chunk ${currentChunkId}...`)
-    
-    // Simulate backend processing (3 seconds)
-    setTimeout(() => {
-      setChunks(prev => prev.map(chunk => 
-        chunk.id === newChunk.id 
-          ? {
-              ...chunk,
-              status: 'completed',
-              transcription: 'Exemplo de transcrição do áudio capturado',
-              emoji: '📚',
-              summary: 'Conteúdo educacional sobre matemática básica'
-            }
-          : chunk
-      ))
-      setProcessingStatus('Chunk processado com sucesso')
-    }, 3000)
-  }
-
-  // Cleanup interval on unmount
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
+      if (isRecording) {
+        cancelRecording()
       }
     }
-  }, [])
+  }, [isRecording, cancelRecording])
 
+  // Show only transcription and visual representation when recording
+  if (isRecording || isProcessing || transcriptionChunks.length > 0 || visualRepresentations.length > 0) {
+    return (
+      <LinearGradient
+        colors={[theme.COLORS['$autism-gradient-2-start'], theme.COLORS['$autism-gradient-2-end']]}
+        style={styles.container}
+      >
+        <View style={[styles.recordingContent, { paddingTop: insets.top + 20 }]}>
+          {/* Recording Status Header */}
+          <View style={styles.recordingHeader}>
+            <Typography 
+              size="$font-title-md" 
+              fontWeight="$bold" 
+              color="$primary"
+              style={styles.recordingTitle}
+            >
+              {isRecording ? 'Gravando...' : isProcessing ? 'Processando...' : 'Gravação Finalizada'}
+            </Typography>
+            {isRecording && (
+              <Typography 
+                size="$font-description-sm" 
+                fontWeight="$medium" 
+                color="$autism-peach"
+                style={styles.recordingDuration}
+              >
+                {Math.floor(recordingDuration / 60).toString().padStart(2, '0')}:
+                {Math.floor(recordingDuration % 60).toString().padStart(2, '0')}
+              </Typography>
+            )}
+          </View>
+
+          {/* Dual Lists Layout - Full Screen */}
+          <View style={styles.fullScreenListsContainer}>
+            {/* Vertical List - Real-time Transcription */}
+            <TranscriptionList
+              transcriptionChunks={transcriptionChunks}
+              isRecording={isRecording}
+              isProcessing={isProcessing}
+              style={styles.fullScreenTranscriptionList}
+            />
+
+            {/* Horizontal List - Visual Representations */}
+            <VisualRepresentationList
+              visualRepresentations={visualRepresentations}
+              isProcessing={isProcessing}
+              style={styles.fullScreenVisualRepresentationList}
+            />
+          </View>
+
+          {/* Minimal Controls */}
+          <View style={styles.minimalControls}>
+            {isRecording ? (
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={cancelRecording}
+              >
+                <Typography 
+                  size="$font-description-md" 
+                  fontWeight="$bold" 
+                  color="$color-grayscale-1"
+                >
+                  Cancelar Gravação
+                </Typography>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[
+                  styles.newRecordingButton,
+                  { 
+                    backgroundColor: getNewRecordingButtonColor(),
+                    shadowColor: getNewRecordingButtonColor()
+                  }
+                ]}
+                onPress={() => {
+                  // Reset the store to go back to initial state
+                  reset()
+                }}
+              >
+                <Typography 
+                  size="$font-description-md" 
+                  fontWeight="$bold" 
+                  color="$color-grayscale-1"
+                >
+                  Nova Gravação
+                </Typography>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </LinearGradient>
+    )
+  }
+
+  // Show initial screen with controls when not recording
   return (
     <LinearGradient
       colors={[theme.COLORS['$autism-gradient-2-start'], theme.COLORS['$autism-gradient-2-end']]}
@@ -96,203 +200,108 @@ export const AudioCaptureScreen = () => {
     >
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
-        {/* Header Section */}
-        <View style={styles.header}>
-          <Typography 
-            size="$font-brand" 
-            fontWeight="$bold" 
-            color="$primary"
-            style={styles.title}
-          >
-            Captura de Áudio
-          </Typography>
-          <Typography 
-            size="$font-description-lg" 
-            fontWeight="$medium" 
-            color="$gray-600"
-            style={styles.subtitle}
-          >
-            Processamento em tempo real a cada 3 segundos
-          </Typography>
-        </View>
-
-        {/* Recording Area */}
-        <View style={styles.recordingArea}>
-          <View style={[styles.microphoneIcon, isRecording && styles.recordingIcon]}>
-            <Text style={styles.microphoneEmoji}>🎤</Text>
-          </View>
-          
-          <Typography 
-            size="$font-description-md" 
-            fontWeight="$medium" 
-            color={isRecording ? "$color-success" : "$gray-600"}
-            style={styles.statusText}
-          >
-            {processingStatus}
-          </Typography>
-        </View>
-
-        {/* Control Button */}
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity
-            style={[styles.recordButton, isRecording && styles.stopButton]}
-            onPress={isRecording ? handleStopRecording : handleStartRecording}
-          >
+          {/* Header Section */}
+          <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
             <Typography 
-              size="$font-title-sm" 
+              size="$font-title-md" 
               fontWeight="$bold" 
-              color="$color-grayscale-1"
-              style={styles.recordButtonText}
+              color="$primary"
+              style={styles.title}
             >
-              {isRecording ? 'Parar Gravação' : 'Iniciar Gravação'}
+              Gravação Inteligente
             </Typography>
-          </TouchableOpacity>
-        </View>
+            <Typography 
+              size="$font-description-sm" 
+              fontWeight="$regular" 
+              color="$gray-600"
+              style={styles.subtitle}
+            >
+              Transforme sua voz em texto e representações visuais em tempo real
+            </Typography>
+          </View>
 
-        {/* Processing Status */}
-        {chunks.length > 0 && (
-          <View style={styles.statusSection}>
+          {/* Recording Controls */}
+          <RecordingControls
+            isRecording={isRecording}
+            isProcessing={isProcessing}
+            processingStatus={processingStatus}
+            recordingDuration={recordingDuration}
+            onStartRecording={startRecording}
+            onStopRecording={stopRecording}
+            onCancelRecording={cancelRecording}
+          />
+
+          {/* Mock Data Controls */}
+          <View style={styles.mockControls}>
+            <TouchableOpacity
+              style={[
+                styles.mockButton,
+                useMockData && styles.mockButtonActive
+              ]}
+              onPress={toggleMockData}
+            >
+              <Typography 
+                size="$font-description-sm" 
+                fontWeight="$bold" 
+                color={useMockData ? "$color-grayscale-1" : "$autism-blue"}
+                style={styles.mockButtonText}
+              >
+                {useMockData ? '📊 Dados Mock Ativos' : '🎭 Carregar Dados Mock'}
+              </Typography>
+            </TouchableOpacity>
+          </View>
+
+          {/* Instructions */}
+          <View style={styles.instructions}>
             <Typography 
               size="$font-title-sm" 
               fontWeight="$bold" 
               color="$primary"
-              style={styles.sectionTitle}
+              style={styles.instructionTitle}
             >
-              Status do Processamento
+              Como usar:
             </Typography>
-            <View style={styles.statusCard}>
-              <Typography 
-                size="$font-description-sm" 
-                fontWeight="$regular" 
-                color="$gray-700"
-              >
-                Chunks processados: {chunks.filter(c => c.status === 'completed').length}/{chunks.length}
-              </Typography>
-              <Typography 
-                size="$font-description-sm" 
-                fontWeight="$regular" 
-                color="$gray-700"
-              >
-                Status atual: {processingStatus}
-              </Typography>
-            </View>
-          </View>
-        )}
-
-        {/* Audio Chunks History */}
-        {chunks.length > 0 && (
-          <View style={styles.chunksSection}>
             <Typography 
-              size="$font-title-sm" 
-              fontWeight="$bold" 
-              color="$primary"
-              style={styles.sectionTitle}
+              size="$font-description-sm" 
+              fontWeight="$regular" 
+              color="$gray-700"
+              style={styles.instruction}
             >
-              Histórico de Processamento
+              1. Toque em "Iniciar Gravação" para começar
             </Typography>
-            {chunks.map((chunk) => (
-              <View key={chunk.id} style={styles.chunkCard}>
-                <View style={styles.chunkHeader}>
-                  <Typography 
-                    size="$font-description-sm" 
-                    fontWeight="$bold" 
-                    color="$primary"
-                  >
-                    Chunk #{chunk.id}
-                  </Typography>
-                  <View style={[styles.statusIndicator, 
-                    chunk.status === 'completed' && styles.completedIndicator,
-                    chunk.status === 'processing' && styles.processingIndicator,
-                    chunk.status === 'error' && styles.errorIndicator
-                  ]}>
-                    <Typography 
-                      size="$font-description-xs" 
-                      fontWeight="$medium" 
-                      color="$color-grayscale-1"
-                    >
-                      {chunk.status === 'completed' ? '✓' : 
-                       chunk.status === 'processing' ? '⏳' : '✗'}
-                    </Typography>
-                  </View>
-                </View>
-                
-                {chunk.status === 'completed' && (
-                  <View style={styles.chunkContent}>
-                    <View style={styles.chunkRow}>
-                      <Typography 
-                        size="$font-description-xs" 
-                        fontWeight="$medium" 
-                        color="$gray-600"
-                      >
-                        Emoji: {chunk.emoji}
-                      </Typography>
-                    </View>
-                    <Typography 
-                      size="$font-description-xs" 
-                      fontWeight="$regular" 
-                      color="$gray-700"
-                      style={styles.transcription}
-                    >
-                      {chunk.transcription}
-                    </Typography>
-                    <Typography 
-                      size="$font-description-xs" 
-                      fontWeight="$regular" 
-                      color="$gray-600"
-                      style={styles.summary}
-                    >
-                      {chunk.summary}
-                    </Typography>
-                  </View>
-                )}
-              </View>
-            ))}
+            <Typography 
+              size="$font-description-sm" 
+              fontWeight="$regular" 
+              color="$gray-700"
+              style={styles.instruction}
+            >
+              2. Fale sobre o conteúdo educacional
+            </Typography>
+            <Typography 
+              size="$font-description-sm" 
+              fontWeight="$regular" 
+              color="$gray-700"
+              style={styles.instruction}
+            >
+              3. O áudio é processado automaticamente a cada 3 segundos
+            </Typography>
+            <Typography 
+              size="$font-description-sm" 
+              fontWeight="$regular" 
+              color="$gray-700"
+              style={styles.instruction}
+            >
+              4. Toque em "Parar Gravação" para finalizar
+            </Typography>
+            <Typography 
+              size="$font-description-sm" 
+              fontWeight="$regular" 
+              color="$gray-700"
+              style={styles.instruction}
+            >
+              5. Use "Cancelar" para interromper a gravação a qualquer momento
+            </Typography>
           </View>
-        )}
-
-        {/* Instructions */}
-        <View style={styles.instructions}>
-          <Typography 
-            size="$font-title-sm" 
-            fontWeight="$bold" 
-            color="$primary"
-            style={styles.instructionTitle}
-          >
-            Como usar:
-          </Typography>
-          <Typography 
-            size="$font-description-sm" 
-            fontWeight="$regular" 
-            color="$gray-700"
-            style={styles.instruction}
-          >
-            1. Toque em "Iniciar Gravação" para começar
-          </Typography>
-          <Typography 
-            size="$font-description-sm" 
-            fontWeight="$regular" 
-            color="$gray-700"
-            style={styles.instruction}
-          >
-            2. Fale sobre o conteúdo educacional
-          </Typography>
-          <Typography 
-            size="$font-description-sm" 
-            fontWeight="$regular" 
-            color="$gray-700"
-            style={styles.instruction}
-          >
-            3. O áudio é processado automaticamente a cada 3 segundos
-          </Typography>
-          <Typography 
-            size="$font-description-sm" 
-            fontWeight="$regular" 
-            color="$gray-700"
-            style={styles.instruction}
-          >
-            4. Toque em "Parar Gravação" para finalizar
-          </Typography>
-        </View>
         </View>
       </ScrollView>
     </LinearGradient>
@@ -308,148 +317,35 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
-    paddingTop: 50,
+    paddingBottom: 20,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 24,
+    paddingHorizontal: 20,
   },
   title: {
-    fontSize: 32,
+    fontSize: 28,
     textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
+    lineHeight: 34,
   },
   subtitle: {
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: 20,
+    paddingHorizontal: 20,
   },
-  recordingArea: {
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  microphoneIcon: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: theme.COLORS['$autism-gray'],
-    justifyContent: 'center',
-    alignItems: 'center',
+  listsContainer: {
+    flex: 1,
     marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
   },
-  recordingIcon: {
-    backgroundColor: theme.COLORS['$autism-mint'],
+  transcriptionList: {
+    flex: 1,
+    minHeight: 300,
+    marginBottom: 16,
   },
-  microphoneEmoji: {
-    fontSize: 40,
-  },
-  statusText: {
-    textAlign: 'center',
-  },
-  buttonContainer: {
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  recordButton: {
-    backgroundColor: theme.COLORS['$autism-lavender'],
-    paddingHorizontal: 40,
-    paddingVertical: 18,
-    borderRadius: 25,
-    minWidth: 200,
-    shadowColor: theme.COLORS['$autism-lavender'],
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  stopButton: {
-    backgroundColor: theme.COLORS['$autism-peach'],
-    shadowColor: theme.COLORS['$autism-peach'],
-  },
-  recordButtonText: {
-    textAlign: 'center',
-  },
-  statusSection: {
-    marginBottom: 30,
-  },
-  sectionTitle: {
-    marginBottom: 15,
-    textAlign: 'center',
-  },
-  statusCard: {
-    backgroundColor: theme.COLORS['$autism-gray'],
-    padding: 20,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  chunksSection: {
-    marginBottom: 30,
-  },
-  chunkCard: {
-    backgroundColor: theme.COLORS['$autism-gray'],
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  chunkHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  statusIndicator: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  completedIndicator: {
-    backgroundColor: theme.COLORS['$autism-mint'],
-  },
-  processingIndicator: {
-    backgroundColor: theme.COLORS['$autism-blue'],
-  },
-  errorIndicator: {
-    backgroundColor: theme.COLORS['$autism-peach'],
-  },
-  chunkContent: {
-    marginTop: 8,
-  },
-  chunkRow: {
-    marginBottom: 8,
-  },
-  transcription: {
-    marginBottom: 8,
-    lineHeight: 18,
-  },
-  summary: {
-    lineHeight: 16,
+  visualRepresentationList: {
+    minHeight: 160,
   },
   instructions: {
     backgroundColor: theme.COLORS['$autism-gray'],
@@ -472,5 +368,96 @@ const styles = StyleSheet.create({
   instruction: {
     marginBottom: 8,
     lineHeight: 20,
+  },
+  // New styles for recording screen
+  recordingContent: {
+    flex: 1,
+    padding: 16,
+    paddingBottom: 20,
+  },
+  recordingHeader: {
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.COLORS['$autism-lavender'],
+    paddingHorizontal: 20,
+  },
+  recordingTitle: {
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  recordingDuration: {
+    textAlign: 'center',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  fullScreenListsContainer: {
+    flex: 1,
+    marginBottom: 16,
+  },
+  fullScreenTranscriptionList: {
+    height: 250,
+    marginBottom: 16,
+  },
+  fullScreenVisualRepresentationList: {
+    height: 260,
+  },
+  minimalControls: {
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  cancelButton: {
+    backgroundColor: theme.COLORS['$autism-peach'],
+    borderWidth: 2,
+    borderColor: theme.COLORS['$autism-peach'],
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 20,
+    minWidth: 160,
+    alignItems: 'center',
+    shadowColor: theme.COLORS['$autism-peach'],
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  newRecordingButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 20,
+    minWidth: 160,
+    alignItems: 'center',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  mockControls: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  mockButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    borderColor: theme.COLORS['$autism-blue'],
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    minWidth: 200,
+    alignItems: 'center',
+  },
+  mockButtonActive: {
+    backgroundColor: theme.COLORS['$autism-blue'],
+    borderColor: theme.COLORS['$autism-blue'],
+  },
+  mockButtonText: {
+    textAlign: 'center',
   },
 })
