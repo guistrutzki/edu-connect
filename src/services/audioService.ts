@@ -17,7 +17,7 @@ export interface AudioServiceCallbacks {
 }
 
 export const useAudioService = (callbacks?: AudioServiceCallbacks) => {
-  const audioRecorder = useAudioRecorder(RecordingPresets.LOW_QUALITY)
+  const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY)
   const recorderState = useAudioRecorderState(audioRecorder)
   
   const [recordingState, setRecordingState] = useState<AudioRecordingState>({
@@ -28,7 +28,6 @@ export const useAudioService = (callbacks?: AudioServiceCallbacks) => {
     recordingDuration: 0
   })
   
-  const chunkIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const callbacksRef = useRef(callbacks)
   const isCancellingRef = useRef(false)
 

@@ -7,8 +7,8 @@ import {
   AudioError 
 } from '../types/audio.types' 
 import { transcriptionService } from '../services/transcriptionService'
-import { audio3sService } from '../services/audio3sService'
-import { emojiService } from '../services/emojiService'
+import { mapApiEmojisToSvgs, getFoundEmojis } from '../services/emojiMappingService'
+import { convertMappedEmojisToVisualRepresentations } from '../utils/emojiToVisualRepresentation'
 import { mockTranscriptionChunks, mockVisualRepresentations } from '../utils/mockData'
   
 interface AudioState {
@@ -95,34 +95,64 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         processingStatus: 'completed'
       }))
 
-      // Add visual representations with context-aware SVG emojis
-      result.content_emojis.forEach((item, index) => {
-        const contextEmoji = emojiService.getEmojiByContext(item.content)
-        const visualRep: VisualRepresentation = {
-          id: `${result.chunkId}_${index}`,
-          emoji: contextEmoji,
-          content: item.content,
+      // Add visual representations using the new emoji mapping system
+      if (result.content_emojis && result.content_emojis.length > 0) {
+        // Create API response format for mapping
+        const apiResponse = {
+          text: result.text,
+          content_emojis: result.content_emojis,
           confidence: result.confidence,
-          timestamp: new Date()
+          timestamp: new Date().toISOString(),
+          processing_time: 0,
+          chunk_duration: '3s',
+          optimized_for: 'ultra-fast-streaming',
+          cache_hit: false,
+          cache_size: 0
         }
-        get().addVisualRepresentation(visualRep)
-      })
+        
+        // Map emojis to SVGs
+        const mappedEmojis = mapApiEmojisToSvgs(apiResponse)
+        const foundEmojis = getFoundEmojis(mappedEmojis)
+        
+        // Convert to visual representations
+        const visualRepresentations = convertMappedEmojisToVisualRepresentations(
+          foundEmojis,
+          new Date()
+        )
+        
+        // Add each visual representation
+        visualRepresentations.forEach(visualRep => {
+          get().addVisualRepresentation(visualRep)
+        })
+        
+        console.log(`✅ Mapeamento de emojis no store: ${foundEmojis.length}/${mappedEmojis.length} encontrados`)
+      }
 
       // Update audio chunk
       get().updateAudioChunk(chunkId, {
         status: 'completed',
         transcription: result.text,
         confidence: result.confidence,
-        visualRepresentations: result.content_emojis.map((item, index) => {
-          const contextEmoji = emojiService.getEmojiByContext(item.content)
-          return {
-            id: `${result.chunkId}_${index}`,
-            emoji: contextEmoji,
-            content: item.content,
-            confidence: result.confidence,
-            timestamp: new Date()
-          }
-        })
+        visualRepresentations: result.content_emojis && result.content_emojis.length > 0 
+          ? (() => {
+              const apiResponse = {
+                text: result.text,
+                content_emojis: result.content_emojis,
+                confidence: result.confidence,
+                timestamp: new Date().toISOString(),
+                processing_time: 0,
+                chunk_duration: '3s',
+                optimized_for: 'ultra-fast-streaming',
+                cache_hit: false,
+                cache_size: 0
+              }
+              
+              const mappedEmojis = mapApiEmojisToSvgs(apiResponse)
+              const foundEmojis = getFoundEmojis(mappedEmojis)
+              
+              return convertMappedEmojisToVisualRepresentations(foundEmojis, new Date())
+            })()
+          : []
       })
 
     } catch (error) {
@@ -160,19 +190,37 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         processingStatus: 'completed'
       }))
 
-      // Add visual representations with context-aware SVG emojis
-      if (result.emojis && result.emojis.length > 0) {
-        result.emojis.forEach((item: any, index: number) => {
-          const contextEmoji = emojiService.getEmojiByContext(item.description)
-          const visualRep: VisualRepresentation = {
-            id: `${result.chunkId}_${index}`,
-            emoji: contextEmoji,
-            content: item.description,
-            confidence: result.confidence,
-            timestamp: new Date()
-          }
+      // Add visual representations using the new emoji mapping system
+      if (result.content_emojis && result.content_emojis.length > 0) {
+        // Create API response format for mapping
+        const apiResponse = {
+          text: result.text,
+          content_emojis: result.content_emojis,
+          confidence: result.confidence,
+          timestamp: new Date().toISOString(),
+          processing_time: 0,
+          chunk_duration: '3s',
+          optimized_for: 'ultra-fast-streaming',
+          cache_hit: false,
+          cache_size: 0
+        }
+        
+        // Map emojis to SVGs
+        const mappedEmojis = mapApiEmojisToSvgs(apiResponse)
+        const foundEmojis = getFoundEmojis(mappedEmojis)
+        
+        // Convert to visual representations
+        const visualRepresentations = convertMappedEmojisToVisualRepresentations(
+          foundEmojis,
+          new Date()
+        )
+        
+        // Add each visual representation
+        visualRepresentations.forEach(visualRep => {
           get().addVisualRepresentation(visualRep)
         })
+        
+        console.log(`✅ Mapeamento de emojis 3s no store: ${foundEmojis.length}/${mappedEmojis.length} encontrados`)
       }
 
       // Update audio chunk
@@ -180,16 +228,26 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         status: 'completed',
         transcription: result.text,
         confidence: result.confidence,
-        visualRepresentations: result.emojis?.map((item: any, index: number) => {
-          const contextEmoji = emojiService.getEmojiByContext(item.description)
-          return {
-            id: `${result.chunkId}_${index}`,
-            emoji: contextEmoji,
-            content: item.description,
-            confidence: result.confidence,
-            timestamp: new Date()
-          }
-        }) || []
+        visualRepresentations: result.content_emojis && result.content_emojis.length > 0 
+          ? (() => {
+              const apiResponse = {
+                text: result.text,
+                content_emojis: result.content_emojis,
+                confidence: result.confidence,
+                timestamp: new Date().toISOString(),
+                processing_time: 0,
+                chunk_duration: '3s',
+                optimized_for: 'ultra-fast-streaming',
+                cache_hit: false,
+                cache_size: 0
+              }
+              
+              const mappedEmojis = mapApiEmojisToSvgs(apiResponse)
+              const foundEmojis = getFoundEmojis(mappedEmojis)
+              
+              return convertMappedEmojisToVisualRepresentations(foundEmojis, new Date())
+            })()
+          : []
       })
 
       console.log(`✅ Chunk ${chunkId} processado com sucesso via API 3s!`)
