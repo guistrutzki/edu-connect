@@ -8,8 +8,12 @@
   ],
   "rewrites": [
     {
+      "source": "/static/(.*)",
+      "destination": "/static/$1"
+    },
+    {
       "source": "/(.*)",
-      "destination": "/dist/$1"
+      "destination": "/index.html"
     }
   ],
   "headers": [
