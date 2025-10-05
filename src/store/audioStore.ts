@@ -7,6 +7,7 @@ import {
   AudioError 
 } from '../types/audio.types' 
 import { transcriptionService } from '../services/transcriptionService'
+import { audio3sService } from '../services/audio3sService'
 import { emojiService } from '../services/emojiService'
 import { mockTranscriptionChunks, mockVisualRepresentations } from '../utils/mockData'
   
@@ -40,6 +41,7 @@ interface AudioState {
   clearErrors: () => void
   reset: () => void
   processAudioChunk: (audioUri: string, chunkId: number) => Promise<void>
+  processAudioChunk3s: (result: any, chunkId: number) => void
   setRecordingState: (isRecording: boolean) => void
   setProcessingState: (isProcessing: boolean) => void
   setProcessingStatus: (status: ProcessingStatus) => void
@@ -127,6 +129,76 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       const audioError: AudioError = {
         code: 'CHUNK_PROCESSING_ERROR',
         message: error instanceof Error ? error.message : 'Failed to process audio chunk',
+        timestamp: new Date()
+      }
+      get().addError(audioError)
+      get().updateAudioChunk(chunkId, { status: 'error' })
+      set({ 
+        isProcessing: false,
+        processingStatus: 'error'
+      })
+    }
+  },
+
+  processAudioChunk3s: (result: any, chunkId: number) => {
+    try {
+      console.log(`🎉 Processando resultado 3s para chunk ${chunkId}:`, result)
+      
+      // Update transcription
+      const transcriptionChunk: TranscriptionChunk = {
+        id: result.chunkId,
+        text: result.text,
+        timestamp: new Date(),
+        confidence: result.confidence,
+        isFinal: true
+      }
+
+      set(state => ({
+        transcriptionText: state.transcriptionText + (state.transcriptionText ? ' ' : '') + result.text,
+        transcriptionChunks: [...state.transcriptionChunks, transcriptionChunk],
+        isProcessing: false,
+        processingStatus: 'completed'
+      }))
+
+      // Add visual representations with context-aware SVG emojis
+      if (result.emojis && result.emojis.length > 0) {
+        result.emojis.forEach((item: any, index: number) => {
+          const contextEmoji = emojiService.getEmojiByContext(item.description)
+          const visualRep: VisualRepresentation = {
+            id: `${result.chunkId}_${index}`,
+            emoji: contextEmoji,
+            content: item.description,
+            confidence: result.confidence,
+            timestamp: new Date()
+          }
+          get().addVisualRepresentation(visualRep)
+        })
+      }
+
+      // Update audio chunk
+      get().updateAudioChunk(chunkId, {
+        status: 'completed',
+        transcription: result.text,
+        confidence: result.confidence,
+        visualRepresentations: result.emojis?.map((item: any, index: number) => {
+          const contextEmoji = emojiService.getEmojiByContext(item.description)
+          return {
+            id: `${result.chunkId}_${index}`,
+            emoji: contextEmoji,
+            content: item.description,
+            confidence: result.confidence,
+            timestamp: new Date()
+          }
+        }) || []
+      })
+
+      console.log(`✅ Chunk ${chunkId} processado com sucesso via API 3s!`)
+      
+    } catch (error) {
+      console.error('❌ Erro ao processar resultado 3s:', error)
+      const audioError: AudioError = {
+        code: 'CHUNK_3S_PROCESSING_ERROR',
+        message: error instanceof Error ? error.message : 'Failed to process 3s API result',
         timestamp: new Date()
       }
       get().addError(audioError)

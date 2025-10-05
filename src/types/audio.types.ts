@@ -22,6 +22,19 @@ export interface AudioProcessingResult {
   }>
   confidence: number
   chunkId: string
+  timestamp?: string
+  processingTime?: number
+  emojis?: Array<{
+    emoji: string
+    description: string
+  }>
+  metadata?: {
+    chunkDuration?: string
+    optimizedFor?: string
+    cacheHit?: boolean
+    cacheSize?: number
+    apiProcessingTime?: number
+  }
 }
 
 export interface AudioRecordingState {

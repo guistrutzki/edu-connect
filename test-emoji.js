@@ -6,3 +6,4 @@ const randomEmoji = emojiService.getRandomEmoji()
 console.log('Random emoji:', randomEmoji)
 console.log('Emoji path type:', typeof randomEmoji.path)
 console.log('Emoji path:', randomEmoji.path)
+

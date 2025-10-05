@@ -56,6 +56,7 @@ export const AudioCaptureScreen = () => {
     visualRepresentations,
     errors,
     processAudioChunk,
+    processAudioChunk3s,
     setRecordingState,
     setProcessingState,
     setProcessingStatus,
@@ -78,8 +79,12 @@ export const AudioCaptureScreen = () => {
     isRecording: hookIsRecording
   } = useAudioService({
     onChunkReady: async (audioUri: string, chunkId: number) => {
-      // Process the audio chunk through the store
+      // Process the audio chunk through the store (fallback)
       await processAudioChunk(audioUri, chunkId)
+    },
+    onChunkProcessed: (result: any, chunkId: number) => {
+      // Process the result from 3s API directly
+      processAudioChunk3s(result, chunkId)
     },
     onError: (error) => {
       // Handle errors through the store

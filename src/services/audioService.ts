@@ -2,21 +2,22 @@ import {
   useAudioRecorder,
   useAudioRecorderState,
   AudioModule,
-  RecordingPresets,
-  setAudioModeAsync
+  setAudioModeAsync,
+  RecordingPresets
 } from 'expo-audio'
-import * as FileSystem from 'expo-file-system'
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { AudioRecordingState, AudioError } from '../types/audio.types'
+import { audio3sService } from './audio3sService'
 
 export interface AudioServiceCallbacks {
   onChunkReady?: (audioUri: string, chunkId: number) => void
+  onChunkProcessed?: (result: any, chunkId: number) => void
   onError?: (error: AudioError) => void
   onStateChange?: (state: AudioRecordingState) => void
 }
 
 export const useAudioService = (callbacks?: AudioServiceCallbacks) => {
-  const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY)
+  const audioRecorder = useAudioRecorder(RecordingPresets.LOW_QUALITY)
   const recorderState = useAudioRecorderState(audioRecorder)
   
   const [recordingState, setRecordingState] = useState<AudioRecordingState>({
@@ -29,6 +30,7 @@ export const useAudioService = (callbacks?: AudioServiceCallbacks) => {
   
   const chunkIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const callbacksRef = useRef(callbacks)
+  const isCancellingRef = useRef(false)
 
   // Update callbacks ref when callbacks change
   useEffect(() => {
@@ -46,6 +48,7 @@ export const useAudioService = (callbacks?: AudioServiceCallbacks) => {
         console.log('📋 Status das permissões:', status)
         
         if (!status.granted) {
+          console.error('❌ Permissão de gravação negada!')
           throw new Error('Audio recording permission not granted')
         }
 
@@ -56,6 +59,13 @@ export const useAudioService = (callbacks?: AudioServiceCallbacks) => {
         })
         
         console.log('✅ Áudio configurado com sucesso')
+        
+        // Verificar se o recorder está disponível
+        console.log('🔍 Verificando disponibilidade do recorder:', {
+          hasRecorder: !!audioRecorder,
+          recorderState: recorderState
+        })
+        
       } catch (error) {
         console.error('❌ Falha ao configurar áudio:', error)
         const audioError: AudioError = {
@@ -70,95 +80,22 @@ export const useAudioService = (callbacks?: AudioServiceCallbacks) => {
     setupAudioMode()
   }, [])
 
-  // Update recording state when recorder state changes
-  useEffect(() => {
-    setRecordingState(prev => ({
-      ...prev,
-      isRecording: recorderState.isRecording
-    }))
-  }, [recorderState.isRecording])
+  // Removido useEffect problemático que causava cancelamento automático
 
-  const startChunkProcessing = useCallback(() => {
-    console.log('🔄 Iniciando processamento de chunks...')
-    chunkIntervalRef.current = setInterval(async () => {
-      if (audioRecorder && recordingState.isRecording) {
-        try {
-          console.log('📦 Processando chunk...')
-          // Create a copy of current recording for processing
-          const currentUri = audioRecorder.uri
-          console.log('🎵 URI atual:', currentUri)
-          
-          if (currentUri) {
-            // Create a temporary file for this chunk
-            const chunkUri = `file:///tmp/chunk_${recordingState.currentChunkId}_${Date.now()}.m4a`
-            console.log('📁 Chunk URI:', chunkUri)
-            
-            // Copy current recording to chunk file
-            await FileSystem.copyAsync({
-              from: currentUri,
-              to: chunkUri
-            })
-            console.log('✅ Chunk copiado com sucesso')
-
-            // Notify that chunk is ready
-            callbacksRef.current?.onChunkReady?.(chunkUri, recordingState.currentChunkId)
-            console.log(`🎉 Chunk ${recordingState.currentChunkId} pronto!`)
-
-            // Update chunk ID for next iteration
-            setRecordingState(prev => ({
-              ...prev,
-              currentChunkId: prev.currentChunkId + 1
-            }))
-          } else {
-            console.log('⚠️ URI ainda não disponível')
-          }
-        } catch (error) {
-          console.error('❌ Erro no processamento de chunk:', error)
-          const audioError: AudioError = {
-            code: 'CHUNK_PROCESSING_FAILED',
-            message: error instanceof Error ? error.message : 'Failed to process audio chunk',
-            timestamp: new Date()
-          }
-          callbacksRef.current?.onError?.(audioError)
-        }
-      }
-    }, 3000) // 3 seconds interval
-  }, [audioRecorder, recordingState.isRecording, recordingState.currentChunkId])
-
-  const stopChunkProcessing = useCallback(() => {
-    if (chunkIntervalRef.current) {
-      clearInterval(chunkIntervalRef.current)
-      chunkIntervalRef.current = null
-    }
-  }, [])
+  // Funções antigas removidas - agora usando loop simples
 
   const startRecording = useCallback(async (): Promise<void> => {
     try {
       console.log('🎬 Iniciando gravação...')
       
+      // Reset cancel flag
+      isCancellingRef.current = false
+      
       // Request permissions
       const status = await AudioModule.requestRecordingPermissionsAsync()
-      console.log('📋 Verificando permissões:', status)
-      
       if (!status.granted) {
         throw new Error('Audio recording permission not granted')
       }
-
-      // Stop any existing recording
-      if (recorderState.isRecording) {
-        console.log('⏹️ Parando gravação existente...')
-        await stopRecording()
-      }
-
-      console.log('🔧 Preparando recorder...')
-      // Prepare to record
-      await audioRecorder.prepareToRecordAsync()
-      console.log('✅ Recorder preparado')
-      
-      console.log('▶️ Iniciando gravação...')
-      // Start recording
-      audioRecorder.record()
-      console.log('🎙️ Gravação iniciada!')
 
       // Update state
       setRecordingState(prev => ({
@@ -169,95 +106,102 @@ export const useAudioService = (callbacks?: AudioServiceCallbacks) => {
         recordingDuration: 0
       }))
 
-      // Start chunk processing every 3 seconds
-      startChunkProcessing()
-      console.log('⏰ Processamento de chunks iniciado')
+      // LOOP SIMPLES - A cada 3 segundos faz uma requisição
+      console.log('🔄 Iniciando loop de gravação...')
+      const recordingLoop = async () => {
+        let chunkId = 1
+        let isLooping = true
+        
+        while (isLooping && !isCancellingRef.current) {
+          try {
+            console.log(`🎙️ Gravando chunk ${chunkId}...`)
+            
+            // Preparar e iniciar gravação
+            await audioRecorder.prepareToRecordAsync()
+            audioRecorder.record()
+            
+            // Aguardar 3 segundos
+            await new Promise(resolve => setTimeout(resolve, 3000))
+            
+            // Parar gravação
+            await audioRecorder.stop()
+            const uri = audioRecorder.uri
+            
+            if (uri) {
+              console.log(`🚀 Enviando chunk ${chunkId} para API...`)
+              try {
+                const result = await audio3sService.processChunk(uri, chunkId)
+                console.log(`✅ Chunk ${chunkId} processado:`, result.text)
+                callbacksRef.current?.onChunkProcessed?.(result, chunkId)
+              } catch (error) {
+                console.log(`❌ Erro no chunk ${chunkId}:`, error)
+              }
+            }
+            
+            chunkId++
+            
+            // Verificar se deve continuar
+            if (isCancellingRef.current) {
+              isLooping = false
+            }
+            
+          } catch (error) {
+            console.error(`❌ Erro no loop de gravação:`, error)
+            isLooping = false
+          }
+        }
+        
+        console.log('🛑 Loop de gravação finalizado')
+      }
+      
+      // Iniciar o loop
+      recordingLoop()
 
     } catch (error) {
       console.error('❌ Erro ao iniciar gravação:', error)
-      const audioError: AudioError = {
-        code: 'RECORDING_START_FAILED',
-        message: error instanceof Error ? error.message : 'Failed to start recording',
-        timestamp: new Date()
-      }
-      callbacksRef.current?.onError?.(audioError)
       throw error
     }
-  }, [audioRecorder, recorderState.isRecording, startChunkProcessing])
+  }, [audioRecorder, recordingState.isRecording])
 
   const stopRecording = useCallback(async (): Promise<string | null> => {
-    try {
-      if (!recorderState.isRecording) {
-        return null
-      }
-
-      // Stop chunk processing
-      stopChunkProcessing()
-
-      // Stop recording
-      await audioRecorder.stop()
-      const uri = audioRecorder.uri
-      
-      // Update state
-      setRecordingState(prev => ({
-        ...prev,
-        isRecording: false,
-        isProcessing: false
-      }))
-
-      return uri
-    } catch (error) {
-      const audioError: AudioError = {
-        code: 'RECORDING_STOP_FAILED',
-        message: error instanceof Error ? error.message : 'Failed to stop recording',
-        timestamp: new Date()
-      }
-      callbacksRef.current?.onError?.(audioError)
-      throw error
-    }
-  }, [audioRecorder, recorderState.isRecording, stopChunkProcessing])
+    console.log('🛑 Parando gravação...')
+    isCancellingRef.current = true
+    
+    setRecordingState(prev => ({
+      ...prev,
+      isRecording: false,
+      isProcessing: false
+    }))
+    
+    return null
+  }, [])
 
   const cancelRecording = useCallback(async (): Promise<void> => {
-    try {
-      if (!recorderState.isRecording) {
-        return
-      }
-
-      // Stop chunk processing
-      stopChunkProcessing()
-
-      // Stop and discard recording
-      await audioRecorder.stop()
-      
-      // Update state
-      setRecordingState(prev => ({
-        ...prev,
-        isRecording: false,
-        isProcessing: false,
-        recordingStartTime: null,
-        recordingDuration: 0
-      }))
-    } catch (error) {
-      const audioError: AudioError = {
-        code: 'RECORDING_CANCEL_FAILED',
-        message: error instanceof Error ? error.message : 'Failed to cancel recording',
-        timestamp: new Date()
-      }
-      callbacksRef.current?.onError?.(audioError)
-      throw error
-    }
-  }, [audioRecorder, recorderState.isRecording, stopChunkProcessing])
+    console.log('🛑 Cancelando gravação...')
+    
+    // Parar o loop
+    isCancellingRef.current = true
+    
+    // Atualizar estado
+    setRecordingState(prev => ({
+      ...prev,
+      isRecording: false,
+      isProcessing: false,
+      recordingStartTime: null,
+      recordingDuration: 0,
+      currentChunkId: 1
+    }))
+    
+    console.log('✅ Gravação cancelada')
+  }, [])
 
   const cleanup = useCallback(async (): Promise<void> => {
     try {
-      if (recorderState.isRecording) {
-        await cancelRecording()
-      }
-      stopChunkProcessing()
+      await cancelRecording()
     } catch (error) {
       console.error('Error during cleanup:', error)
     }
-  }, [recorderState.isRecording, cancelRecording, stopChunkProcessing])
+  }, [cancelRecording])
 
   // Cleanup on unmount
   useEffect(() => {
