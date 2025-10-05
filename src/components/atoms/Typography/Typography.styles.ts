@@ -27,16 +27,12 @@ export const getTypographyStyle = (
     : theme.FALLBACK_FONTS[fontWeight]
 
   const baseFontSize = Number(FontSize[typography])
-  const baseLineHeight = Number(LineHeight[typography])
 
   const platformMultiplier = isAndroid ? 1.03 : 1
   const responsiveFontSize = responsiveSize(baseFontSize * platformMultiplier)
-  const responsiveLineHeight = responsiveSize(
-    baseLineHeight * platformMultiplier
-  )
+  
 
   return {
-    lineHeight: Math.max(responsiveLineHeight, responsiveFontSize * 1.2), // Ensure minimum 1.2x line-height
     fontSize: responsiveFontSize,
     color: theme.COLORS[color],
     fontFamily,

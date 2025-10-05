@@ -4,7 +4,7 @@ import { theme } from '../../../utils/theme'
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.COLORS['$autism-gray'],
+    backgroundColor: theme.COLORS['$color-grayscale-1'],
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
@@ -13,9 +13,9 @@ export const styles = StyleSheet.create({
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 4,
   },
   header: {
     flexDirection: 'row',

@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react'
-import { View, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native'
+import React, { useEffect, useRef } from 'react'
+import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, Animated } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Typography } from '../../components/atoms/Typography'
@@ -10,6 +10,40 @@ import { useAudioStore } from '../../store/audioStore'
 import { useAudioService } from '../../services/audioService'
 import { theme } from '../../utils/theme'
 
+// Componente da bolinha piscando para indicar gravação
+const RecordingIndicator: React.FC = () => {
+  const pulseAnim = useRef(new Animated.Value(1)).current
+
+  useEffect(() => {
+    const pulse = () => {
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 0.3,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ]).start(() => pulse())
+    }
+    pulse()
+  }, [pulseAnim])
+
+  return (
+    <Animated.View
+      style={[
+        styles.recordingDot,
+        {
+          opacity: pulseAnim,
+        },
+      ]}
+    />
+  )
+}
+
 export const AudioCaptureScreen = () => {
   const insets = useSafeAreaInsets()
   const {
@@ -17,6 +51,7 @@ export const AudioCaptureScreen = () => {
     isProcessing,
     processingStatus,
     recordingDuration,
+    recordingStartTime,
     transcriptionChunks,
     visualRepresentations,
     errors,
@@ -62,6 +97,30 @@ export const AudioCaptureScreen = () => {
   // Use the hook's recording state as the source of truth
   const isRecording = hookIsRecording
 
+  // Timer para atualizar a duração da gravação a cada segundo
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null
+
+    if (isRecording && recordingStartTime) {
+      interval = setInterval(() => {
+        const now = new Date()
+        const duration = Math.floor((now.getTime() - recordingStartTime.getTime()) / 1000)
+        setRecordingDuration(duration)
+      }, 1000) // Atualiza a cada segundo
+    } else {
+      // Para o timer quando não está gravando
+      if (interval) {
+        clearInterval(interval)
+      }
+    }
+
+    return () => {
+      if (interval) {
+        clearInterval(interval)
+      }
+    }
+  }, [isRecording, recordingStartTime, setRecordingDuration])
+
   // Function to get button color based on status
   const getNewRecordingButtonColor = () => {
     if (processingStatus === 'completed') {
@@ -103,20 +162,26 @@ export const AudioCaptureScreen = () => {
   if (isRecording || isProcessing || transcriptionChunks.length > 0 || visualRepresentations.length > 0) {
     return (
       <LinearGradient
-        colors={[theme.COLORS['$autism-gradient-2-start'], theme.COLORS['$autism-gradient-2-end']]}
+        colors={['#FFF8E1', '#F3E5F5', '#E8F5E8']}
         style={styles.container}
       >
-        <View style={[styles.recordingContent, { paddingTop: insets.top + 20 }]}>
-          {/* Recording Status Header */}
-          <View style={styles.recordingHeader}>
-            <Typography 
-              size="$font-title-md" 
-              fontWeight="$bold" 
-              color="$primary"
-              style={styles.recordingTitle}
-            >
-              {isRecording ? 'Gravando...' : isProcessing ? 'Processando...' : 'Gravação Finalizada'}
-            </Typography>
+        {/* Recording Status Header */}
+        <View style={[styles.recordingHeader, { paddingTop: insets.top + 20 }]}>
+          <View style={styles.recordingHeaderContent}>
+            {/* Lado esquerdo - Título com indicador */}
+            <View style={styles.recordingTitleContainer}>
+              {isRecording && <RecordingIndicator />}
+              <Typography 
+                size="$font-title-sm" 
+                fontWeight="$bold" 
+                color="$primary"
+                style={styles.recordingTitle}
+              >
+                {isRecording ? 'Gravando...' : isProcessing ? 'Processando...' : 'Sessão Concluída'}
+              </Typography>
+            </View>
+            
+            {/* Lado direito - Timer */}
             {isRecording && (
               <Typography 
                 size="$font-description-sm" 
@@ -129,6 +194,9 @@ export const AudioCaptureScreen = () => {
               </Typography>
             )}
           </View>
+        </View>
+
+        <View style={styles.recordingContent}>
 
           {/* Dual Lists Layout - Full Screen */}
           <View style={styles.fullScreenListsContainer}>
@@ -195,7 +263,7 @@ export const AudioCaptureScreen = () => {
   // Show initial screen with controls when not recording
   return (
     <LinearGradient
-      colors={[theme.COLORS['$autism-gradient-2-start'], theme.COLORS['$autism-gradient-2-end']]}
+      colors={['#FFF8E1', '#F3E5F5', '#E8F5E8']}
       style={styles.container}
     >
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -254,7 +322,7 @@ export const AudioCaptureScreen = () => {
           {/* Instructions */}
           <View style={styles.instructions}>
             <Typography 
-              size="$font-title-sm" 
+              size="$font-title-md" 
               fontWeight="$bold" 
               color="$primary"
               style={styles.instructionTitle}
@@ -262,7 +330,7 @@ export const AudioCaptureScreen = () => {
               Como usar:
             </Typography>
             <Typography 
-              size="$font-description-sm" 
+              size="$font-description-md" 
               fontWeight="$regular" 
               color="$gray-700"
               style={styles.instruction}
@@ -270,7 +338,7 @@ export const AudioCaptureScreen = () => {
               1. Toque em "Iniciar Gravação" para começar
             </Typography>
             <Typography 
-              size="$font-description-sm" 
+              size="$font-description-md" 
               fontWeight="$regular" 
               color="$gray-700"
               style={styles.instruction}
@@ -278,7 +346,7 @@ export const AudioCaptureScreen = () => {
               2. Fale sobre o conteúdo educacional
             </Typography>
             <Typography 
-              size="$font-description-sm" 
+              size="$font-description-md" 
               fontWeight="$regular" 
               color="$gray-700"
               style={styles.instruction}
@@ -286,7 +354,7 @@ export const AudioCaptureScreen = () => {
               3. O áudio é processado automaticamente a cada 3 segundos
             </Typography>
             <Typography 
-              size="$font-description-sm" 
+              size="$font-description-md" 
               fontWeight="$regular" 
               color="$gray-700"
               style={styles.instruction}
@@ -294,7 +362,7 @@ export const AudioCaptureScreen = () => {
               4. Toque em "Parar Gravação" para finalizar
             </Typography>
             <Typography 
-              size="$font-description-sm" 
+              size="$font-description-md" 
               fontWeight="$regular" 
               color="$gray-700"
               style={styles.instruction}
@@ -377,20 +445,47 @@ const styles = StyleSheet.create({
   },
   recordingHeader: {
     alignItems: 'center',
-    marginBottom: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.COLORS['$autism-lavender'],
+    justifyContent: 'center',
+    paddingBottom: 20,
     paddingHorizontal: 20,
+    backgroundColor: theme.COLORS['$color-grayscale-1'],
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  recordingHeaderContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  recordingTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
   },
   recordingTitle: {
-    textAlign: 'center',
-    marginBottom: 8,
+    textAlign: 'left',
+    marginLeft: 8,
   },
   recordingDuration: {
-    textAlign: 'center',
+    textAlign: 'right',
     fontSize: 18,
     fontWeight: '600',
+  },
+  recordingDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#FF4444',
+    marginRight: 8,
   },
   fullScreenListsContainer: {
     flex: 1,
@@ -401,22 +496,22 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   fullScreenVisualRepresentationList: {
-    height: 260,
+    height: 268,
   },
   minimalControls: {
     alignItems: 'center',
     paddingVertical: 8,
   },
   cancelButton: {
-    backgroundColor: theme.COLORS['$autism-peach'],
+    backgroundColor: '#FF4444',
     borderWidth: 2,
-    borderColor: theme.COLORS['$autism-peach'],
+    borderColor: '#FF4444',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 20,
     minWidth: 160,
     alignItems: 'center',
-    shadowColor: theme.COLORS['$autism-peach'],
+    shadowColor: '#FF4444',
     shadowOffset: {
       width: 0,
       height: 4,

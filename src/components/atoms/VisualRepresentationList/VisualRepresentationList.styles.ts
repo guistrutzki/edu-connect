@@ -10,18 +10,10 @@ export const EmojiImage = styled.Image`
 
 export const styles = StyleSheet.create({
   container: {
-    backgroundColor: theme.COLORS['$autism-gray'],
+    backgroundColor: theme.COLORS['$color-grayscale-1'],
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   header: {
     flexDirection: 'row',
@@ -52,7 +44,7 @@ export const styles = StyleSheet.create({
   },
   representationItem: {
     width: 140,
-    height: 180,
+    minHeight: 180,
     marginRight: 16,
     backgroundColor: theme.COLORS['$color-grayscale-1'],
     borderRadius: 20,
@@ -95,7 +87,6 @@ export const styles = StyleSheet.create({
   contentText: {
     textAlign: 'center',
     lineHeight: 20,
-    flex: 1,
   },
   emptyState: {
     flex: 1,

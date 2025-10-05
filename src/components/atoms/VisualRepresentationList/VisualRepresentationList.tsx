@@ -52,7 +52,7 @@ const VisualRepresentationItem: React.FC<VisualRepresentationItemProps> = ({
         fontWeight="$medium" 
         color="$gray-700"
         style={styles.contentText}
-        numberOfLines={4}
+        numberOfLines={3}
       >
         {representation.content}
       </Typography>
@@ -134,7 +134,7 @@ export const VisualRepresentationList: React.FC<VisualRepresentationListProps> =
         contentContainerStyle={
           visualRepresentations.length === 0 
             ? { flex: 1, justifyContent: 'center' } 
-            : { paddingBottom: 40 }
+            : { paddingBottom: 16 }
         }
         ListEmptyComponent={renderEmptyState}
       />
